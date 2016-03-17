@@ -1,0 +1,131 @@
+MSeditor.EventBase = function() {
+			/**
+			 * @property {Object} _customEventsHander
+			 * 存储对象自定义事件的处理函数.
+			 *
+			 * 形态为：
+			 *
+			 * {'evnetName':[fn1,fn2],'evnetName':[fn1,fn2]}
+			 * @private
+			 * @return {Object}
+			 */
+			/**
+			 * @property {Object} _customEventsHanderScope
+			 * 存储对象自定义事件的处理函数的上下文.
+			 *
+			 * 形态为：
+			 *
+			 * {'evnetName':[scope1,scope2],'evnetName':[scope1,scope2]}
+			 * @private
+			 * @return {Object}
+			 */
+			this._customEventsHander = {};
+			this._customEventsHanderScope = {};
+			this.on = function(eventName, fn, scopeObj) {
+				eventName = eventName.replace(/^ *| *$/g, '').toLocaleLowerCase();
+				if ((eventName = eventName.split(' ')).length > 1) {
+					for (var i = 0; i < eventName.length; i++) {
+						this.on(eventName[i]);
+					}
+					return;
+				} else {
+					eventName = eventName[0];
+				}
+				var eventList;
+				//第一次绑定
+				if (!this.queryListener(eventName)) {
+					eventList = this._customEventsHander[eventName] = [];
+					this._customEventsHanderScope[eventName] = [];
+				} else {
+					eventList = this._customEventsHander[eventName];
+				};
+
+				if (eventList.length > 1) {
+					for (var i = 0; i < eventList.length; i++) {
+						if (eventList[i] === fn) {
+							return;
+						}
+					}
+				}
+				eventList.push(fn);
+				this._customEventsHanderScope[eventName].push(scopeObj || this);
+			};
+			
+			this.once = function(eventName, fn, scopeObj) {
+				var me = this;
+				this.on(eventName, function() {
+					fn.call(scopeObj || me);
+					me.removeListener(eventName, fn);
+				})
+			}
+		
+			this.queryListener = function(eventName) {
+				return eventName in this._customEventsHander;
+			};
+			var me=this;
+			this.evnt=function(){
+				MSeditor.Event.call(this);
+				this.removeListener=function(){
+					
+				}
+			};
+			
+			this.fireListener = function(eventName,info) {
+				eventName = eventName.toLocaleLowerCase();
+				var eventList = this._customEventsHander[eventName];
+				if (!eventList || !eventList.length) {
+					return;
+				}
+				this.actvEventName=eventName;
+				var hl,
+					scopeObjList = this._customEventsHanderScope[eventName],
+					evntInfo=new this.evnt();
+					evntInfo.type=eventName;
+					evntInfo.target=this;
+					if(info){
+						MSeditor.utils.extend(evntInfo,true,info);
+					}
+					
+
+				for (var i = 0; i < eventList.length; i++) {
+					evntInfo.path=i;
+					hl = eventList[i];
+					hl.apply(scopeObjList[i],arguments.length > 1 ? [evntInfo].concat(Array.prototype.slice.call(arguments, 1)) : [evntInfo]);
+					//, arguments.length > 1 ? Array.prototype.slice.call(arguments, 1) : ''
+					//ie8 中可能是 Array.prototype.slice.call
+					if(evntInfo.pause){
+						break;
+					}
+				}
+			};
+			this.removeListener = function(eventName, fn) {
+				if (!arguments.length) return;
+				eventName = eventName.toLocaleLowerCase();
+				if (!fn) {
+					this._customEventsHander[eventName] = [];
+					this._customEventsHanderScope[eventName] = [];
+					return;
+				}
+				var eventList = this._customEventsHander[eventName],
+					scopeObjList = this._customEventsHanderScope[eventName];
+				if (!eventList || !eventList.length) {
+					return;
+				}
+				var hl;
+				for (var i = 0; i < eventList.length; i++) {
+
+					if (eventList[i] === fn) {
+						eventList.splice(i, 1);
+						scopeObjList.splice(i, 1);
+						break;
+					}
+
+				}
+			};
+			this.removeAllListener = function() {
+				this._customEventsHander = {};
+				this._customEventsHanderScope = {};
+			};
+
+			
+		};
